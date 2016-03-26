@@ -140,6 +140,8 @@ void GazeboRosBlockLaser::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
     this->update_rate_ = _sdf->GetElement("updateRate")->Get<double>();
   // FIXME:  update the update_rate_
 
+   // this->parent_ray_sensor_->SetUpdateRate(0);
+   // parent_sensor_->SetUpdateRate(0);
 
   this->laser_connect_count_ = 0;
 
@@ -230,6 +232,7 @@ void GazeboRosBlockLaser::LaserDisconnect()
 // Update the controller
 void GazeboRosBlockLaser::OnNewLaserScans()
 {
+
   if (this->topic_name_ != "")
   {
     common::Time sensor_update_time = this->parent_sensor_->GetLastUpdateTime();
@@ -265,9 +268,9 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
   double vertialMinAngle = parent_ray_sensor_->GetVerticalAngleMin().Radian();
   
 
-  std::cout << "count: " << vertialRangeCnt << "  " 
-       << rangeCnt << "  " 
-       << vertialRangeCnt*rangeCnt << std::endl;
+  // std::cout << "count: " << vertialRangeCnt << "  " 
+  //      << rangeCnt << "  " 
+  //      << vertialRangeCnt*rangeCnt << std::endl;
   double delta_angle = (maxAngle - minAngle )/rangeCnt;
   double delta_vertial_angle = (vertialMaxAngle - vertialMinAngle)/vertialRangeCnt;
   
@@ -285,6 +288,9 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
   cloud_msg_.is_bigendian = false;
   cloud_msg_.is_dense = true;
 
+  std::vector<double> ranges;
+  parent_ray_sensor_->GetRanges(ranges);
+
   float x, y, z, intensity;
   double ray;
   float * ptr = (float*)( cloud_msg_.data.data() );
@@ -298,7 +304,8 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
     int range_id = i*rangeCnt; 
     for(int j = 0; j < rangeCnt; j++)
     { 
-      ray = parent_ray_sensor_->GetLaserShape()->GetRange(range_id);
+      // ray = parent_ray_sensor_->GetLaserShape()->GetRange(range_id);
+      ray = ranges[range_id];
       //intensity = parent_ray_sensor_->GetLaserShape()->GetRetro(i*rangeCnt + j);
       //ray = sensor_model_(ray, dt); //add noise
 
@@ -321,7 +328,7 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
 
   // send data out via ros message
   this->pub_.publish(this->cloud_msg_);
-  std::cout << "cloud msg duration:" << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
+  
 
 
 }

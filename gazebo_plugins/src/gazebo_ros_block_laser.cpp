@@ -52,6 +52,8 @@ GZ_REGISTER_SENSOR_PLUGIN(GazeboRosBlockLaser)
 // Constructor
 GazeboRosBlockLaser::GazeboRosBlockLaser()
 {
+
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -159,14 +161,36 @@ void GazeboRosBlockLaser::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
   this->frame_name_ = tf::resolve(prefix, this->frame_name_);
 
   // set size of cloud message, starts at 0!! FIXME: not necessary
-  this->cloud_msg_.points.clear();
-  this->cloud_msg_.channels.clear();
-  this->cloud_msg_.channels.push_back(sensor_msgs::ChannelFloat32());
+  // this->cloud_msg_.points.clear();
+  // this->cloud_msg_.channels.clear();
+  // this->cloud_msg_.channels.push_back(sensor_msgs::ChannelFloat32());
+
+  cloud_msg_.point_step = 12;
+  cloud_msg_.header.frame_id = frame_name_;
+  cloud_msg_.fields.resize(3);
+  cloud_msg_.fields[0].name = "x";
+  cloud_msg_.fields[0].offset = 0;
+  cloud_msg_.fields[0].datatype = sensor_msgs::PointField::FLOAT32;
+  cloud_msg_.fields[0].count = 1;
+
+  cloud_msg_.fields[1].name = "y";
+  cloud_msg_.fields[1].offset = 4;
+  cloud_msg_.fields[1].datatype = sensor_msgs::PointField::FLOAT32;
+  cloud_msg_.fields[1].count = 1;
+
+  cloud_msg_.fields[2].name = "z";
+  cloud_msg_.fields[2].offset = 8;
+  cloud_msg_.fields[2].datatype = sensor_msgs::PointField::FLOAT32;
+  cloud_msg_.fields[2].count = 1;
+  // cloud_msg_.fields[3].name = "intensity";
+  // cloud_msg_.fields[3].offset = 12;
+  // cloud_msg_.fields[3].datatype = sensor_msgs::PointField::FLOAT32;
+  // cloud_msg_.fields[3].count = 1;
 
   if (this->topic_name_ != "")
   {
     // Custom Callback Queue
-    ros::AdvertiseOptions ao = ros::AdvertiseOptions::create<sensor_msgs::PointCloud>(
+    ros::AdvertiseOptions ao = ros::AdvertiseOptions::create<sensor_msgs::PointCloud2>(
       this->topic_name_,1,
       boost::bind( &GazeboRosBlockLaser::LaserConnect,this),
       boost::bind( &GazeboRosBlockLaser::LaserDisconnect,this), ros::VoidPtr(), &this->laser_queue_);
@@ -261,9 +285,9 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
 
   // set size of cloud message everytime!
   //int r_size = rangeCount * verticalRangeCount;
-  this->cloud_msg_.points.clear();
-  this->cloud_msg_.channels.clear();
-  this->cloud_msg_.channels.push_back(sensor_msgs::ChannelFloat32());
+  // this->cloud_msg_.points.clear();
+  // this->cloud_msg_.channels.clear();
+  // this->cloud_msg_.channels.push_back(sensor_msgs::ChannelFloat32());
 
   /***************************************************************/
   /*                                                             */
@@ -275,6 +299,9 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
   this->cloud_msg_.header.frame_id = this->frame_name_;
   this->cloud_msg_.header.stamp.sec = _updateTime.sec;
   this->cloud_msg_.header.stamp.nsec = _updateTime.nsec;
+
+  cloud_msg_.data.resize(verticalRangeCount*rangeCount*cloud_msg_.point_step);
+  float * ptr = (float*)( cloud_msg_.data.data() );
 
   for (j = 0; j<verticalRangeCount; j++)
   {
@@ -338,30 +365,36 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
       //compare 2 doubles
       double diffRange = maxRange - minRange;
       double diff  = diffRange - r;
+      geometry_msgs::Point32 point;
       if (fabs(diff) < EPSILON_DIFF)
       {
         // no noise if at max range
-        geometry_msgs::Point32 point;
         //pAngle is rotated by yAngle:
         point.x = r * cos(pAngle) * cos(yAngle);
         point.y = r * cos(pAngle) * sin(yAngle);
-        point.z = -r * sin(pAngle);
-
-        this->cloud_msg_.points.push_back(point); 
+        point.z = r * sin(pAngle);
+        //this->cloud_msg_.points.push_back(point); 
       } 
       else 
       { 
-        geometry_msgs::Point32 point;
+        //geometry_msgs::Point32 point;
         //pAngle is rotated by yAngle:
         point.x = r * cos(pAngle) * cos(yAngle) + this->GaussianKernel(0,this->gaussian_noise_);
         point.y = r * cos(pAngle) * sin(yAngle) + this->GaussianKernel(0,this->gaussian_noise_);
-        point.z = -r * sin(pAngle) + this->GaussianKernel(0,this->gaussian_noise_);
-        this->cloud_msg_.points.push_back(point); 
+        point.z = r * sin(pAngle) + this->GaussianKernel(0,this->gaussian_noise_);
+        //this->cloud_msg_.points.push_back(point); 
       } // only 1 channel 
-
-      this->cloud_msg_.channels[0].values.push_back(intensity + this->GaussianKernel(0,this->gaussian_noise_)) ;
+      *(ptr + 0) = point.x;
+      *(ptr + 1) = point.y;
+      *(ptr + 2) = point.z;
+      ptr += cloud_msg_.fields.size(); 
+      //this->cloud_msg_.channels[0].values.push_back(intensity + this->GaussianKernel(0,this->gaussian_noise_)) ;
     }
   }
+  cloud_msg_.width = rangeCount;
+  cloud_msg_.height = verticalRangeCount;
+  cloud_msg_.row_step = cloud_msg_.point_step*rangeCount;
+  cloud_msg_.is_dense = true;
   this->parent_ray_sensor_->SetActive(true);
 
   // send data out via ros message

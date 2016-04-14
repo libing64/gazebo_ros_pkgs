@@ -247,6 +247,7 @@ void GazeboRosBlockLaser::OnNewLaserScans()
 // Put laser data to the interface
 void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
 {
+  clock_t start = clock();
   int i, hja, hjb;
   int j, vja, vjb;
   double vb, hb;
@@ -255,6 +256,9 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
   double intensity;
 
   this->parent_ray_sensor_->SetActive(false);
+  std::vector<double> ranges;
+  parent_ray_sensor_->GetRanges(ranges);
+  this->parent_ray_sensor_->SetActive(true);
 
 #if GAZEBO_MAJOR_VERSION >= 6
   auto maxAngle = this->parent_ray_sensor_->AngleMax();
@@ -299,10 +303,12 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
   this->cloud_msg_.header.frame_id = this->frame_name_;
   this->cloud_msg_.header.stamp.sec = _updateTime.sec;
   this->cloud_msg_.header.stamp.nsec = _updateTime.nsec;
-
+  std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
   cloud_msg_.data.resize(verticalRangeCount*rangeCount*cloud_msg_.point_step);
   float * ptr = (float*)( cloud_msg_.data.data() );
 
+  std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
+  
   for (j = 0; j<verticalRangeCount; j++)
   {
     // interpolating in vertical direction
@@ -310,7 +316,7 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
     vja = (int) floor(vb);
     vjb = std::min(vja + 1, verticalRayCount - 1);
     vb = vb - floor(vb); // fraction from min
-
+    //std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
     assert(vja >= 0 && vja < verticalRayCount);
     assert(vjb >= 0 && vjb < verticalRayCount);
 
@@ -331,10 +337,15 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
       j3 = hja + vjb * rayCount;
       j4 = hjb + vjb * rayCount;
       // range readings of 4 corners
-      r1 = std::min(this->parent_ray_sensor_->GetLaserShape()->GetRange(j1) , maxRange-minRange);
-      r2 = std::min(this->parent_ray_sensor_->GetLaserShape()->GetRange(j2) , maxRange-minRange);
-      r3 = std::min(this->parent_ray_sensor_->GetLaserShape()->GetRange(j3) , maxRange-minRange);
-      r4 = std::min(this->parent_ray_sensor_->GetLaserShape()->GetRange(j4) , maxRange-minRange);
+      // r1 = std::min(this->parent_ray_sensor_->GetLaserShape()->GetRange(j1) , maxRange-minRange);
+      // r2 = std::min(this->parent_ray_sensor_->GetLaserShape()->GetRange(j2) , maxRange-minRange);
+      // r3 = std::min(this->parent_ray_sensor_->GetLaserShape()->GetRange(j3) , maxRange-minRange);
+      // r4 = std::min(this->parent_ray_sensor_->GetLaserShape()->GetRange(j4) , maxRange-minRange);
+
+      r1 = std::min(ranges[j1] , maxRange-minRange);
+      r2 = std::min(ranges[j2] , maxRange-minRange);
+      r3 = std::min(ranges[j3] , maxRange-minRange);
+      r4 = std::min(ranges[j4] , maxRange-minRange);
 
       // Range is linear interpolation if values are close,
       // and min if they are very different
@@ -342,10 +353,10 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
          +   vb *((1 - hb) * r3 + hb * r4);
 
       // Intensity is averaged
-      intensity = 0.25*(this->parent_ray_sensor_->GetLaserShape()->GetRetro(j1) +
-                        this->parent_ray_sensor_->GetLaserShape()->GetRetro(j2) +
-                        this->parent_ray_sensor_->GetLaserShape()->GetRetro(j3) +
-                        this->parent_ray_sensor_->GetLaserShape()->GetRetro(j4));
+      // intensity = 0.25*(this->parent_ray_sensor_->GetLaserShape()->GetRetro(j1) +
+      //                   this->parent_ray_sensor_->GetLaserShape()->GetRetro(j2) +
+      //                   this->parent_ray_sensor_->GetLaserShape()->GetRetro(j3) +
+      //                   this->parent_ray_sensor_->GetLaserShape()->GetRetro(j4));
 
       // std::cout << " block debug "
       //           << "  ij("<<i<<","<<j<<")"
@@ -391,16 +402,18 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
       //this->cloud_msg_.channels[0].values.push_back(intensity + this->GaussianKernel(0,this->gaussian_noise_)) ;
     }
   }
+  std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
   cloud_msg_.width = rangeCount;
   cloud_msg_.height = verticalRangeCount;
   cloud_msg_.row_step = cloud_msg_.point_step*rangeCount;
   cloud_msg_.is_dense = true;
-  this->parent_ray_sensor_->SetActive(true);
+  cloud_msg_.is_bigendian = false;
+  
 
   // send data out via ros message
   this->pub_.publish(this->cloud_msg_);
 
-
+  std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
 
 }
 

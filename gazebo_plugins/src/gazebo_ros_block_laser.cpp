@@ -303,11 +303,11 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
   this->cloud_msg_.header.frame_id = this->frame_name_;
   this->cloud_msg_.header.stamp.sec = _updateTime.sec;
   this->cloud_msg_.header.stamp.nsec = _updateTime.nsec;
-  std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
+  //std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
   cloud_msg_.data.resize(verticalRangeCount*rangeCount*cloud_msg_.point_step);
   float * ptr = (float*)( cloud_msg_.data.data() );
 
-  std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
+  //std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
   
   for (j = 0; j<verticalRangeCount; j++)
   {
@@ -402,7 +402,7 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
       //this->cloud_msg_.channels[0].values.push_back(intensity + this->GaussianKernel(0,this->gaussian_noise_)) ;
     }
   }
-  std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
+  //std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
   cloud_msg_.width = rangeCount;
   cloud_msg_.height = verticalRangeCount;
   cloud_msg_.row_step = cloud_msg_.point_step*rangeCount;
@@ -413,7 +413,7 @@ void GazeboRosBlockLaser::PutLaserData(common::Time &_updateTime)
   // send data out via ros message
   this->pub_.publish(this->cloud_msg_);
 
-  std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
+  //std::cout << __LINE__ << "  duration: " << (double)(clock() - start)/CLOCKS_PER_SEC << std::endl;
 
 }
 
